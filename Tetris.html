@@ -25,6 +25,7 @@
 			spawningPoint.Y = 1;
 			var const_dropTime = 200;
 			var dropTime = const_dropTime;
+			var score = -1;
 			
 			var currentPosition;
 			var boardPoints = [];
@@ -40,8 +41,9 @@
 			var zShape_vector = [2, 3, 2];
 			var zShape_reverse_vector = [2, 1, 2];
 			var columnShape_vector = [3, 3, 3];
+			var semiPlusShape_vector = [0, 2, 3, 1, 2]
 			
-			var shapes = [lShape_vector, lShape_reverse_vector, cubeShape_vector, zShape_vector, zShape_reverse_vector, columnShape_vector];
+			var shapes = [lShape_vector, lShape_reverse_vector, cubeShape_vector, zShape_vector, zShape_reverse_vector, columnShape_vector, semiPlusShape_vector];
 			
 			var currentShape;
 			var currentShapeOccupiedPoints = [];
@@ -52,6 +54,7 @@
 			
 			function randomNextShape() {
 				nextShape = Math.round(Math.random() * (shapes.length - 1));
+				//nextShape = 6;
 			}
 			
 			function spawnShape() {
@@ -137,14 +140,37 @@
 			function descend() {
 				currentPosition.Y++;
 				renderBoard();
-				if(checkCollision()) {
-					boardPoints = boardPoints.concat(currentShapeOccupiedPoints);
+				if(checkCollision()) {	
+					//boardPoints = boardPoints.concat(currentShapeOccupiedPoints);
+					absorbShapeIntoBoard();
 					recalculateGround();
+					destroyCompletedLines();
 					spawnShape();
 					randomNextShape();
 				}
 				setTimeout(descend, dropTime);
 				
+			}
+			
+			function absorbShapeIntoBoard() {
+				var duplicatePoint = false;
+				var uniquePoints = [];
+				uniquePoints.push(currentShapeOccupiedPoints[0]);
+				for(var i = 0; i < currentShapeOccupiedPoints.length; i++) {
+					duplicatePoint = false;
+					for(var j = 0; j < currentShapeOccupiedPoints.length; j++) {
+						if(i != j && currentShapeOccupiedPoints[i].X + ';' + currentShapeOccupiedPoints[i].Y == currentShapeOccupiedPoints[j].X + ';' + currentShapeOccupiedPoints[j].Y) {
+							duplicatePoint = true;
+							break;
+						}
+					}
+					
+					if(!duplicatePoint) {
+						uniquePoints.push(currentShapeOccupiedPoints[i]);
+					}
+				}
+				
+				boardPoints = boardPoints.concat(uniquePoints);
 			}
 			
 			function recalculateGround() {
@@ -163,6 +189,16 @@
 				}
 			}
 			
+			function removeDuplicatePoints() {
+				for(var i = 0; i < boardPoints.length; i++) {
+					for(var j = 0; j < boardPoints.length; j++) {
+						if(i != j && boardPoints[i].X == boardPoints[j].X && boardPoints[i].Y == boardPoints[j].Y) {
+							boardPoints.splice(i, 1);
+						}
+					}
+				}
+			}
+			
 			function checkCollision() {
 				for(var i = 0; i < currentShapeOccupiedPoints.length; i++) {
 					for(var j = 0; j < currentGroundPoints.length; j++) {
@@ -173,6 +209,51 @@
 				}
 				
 				return false;
+			}
+			
+			function destroyCompletedLines() {
+				for(var i = 0; i < maxBoardHeight; i++) {
+					var currentLevel = 0;
+					
+					for(var j = 0; j < boardPoints.length; j++) {
+						if(boardPoints[j].Y == i) {
+							currentLevel++;
+							if(currentLevel == maxBoardWidth) {
+								destroyLine(i);
+								recalculateGround();
+							}
+						}
+					}
+				}
+			}
+			
+			function destroyLine(line) {
+				incrementScore();
+				var currentLength = boardPoints.length
+				for(var i = currentLength - 1; i >= 0; i--) {
+					if(boardPoints[i].Y == line) {
+						boardPoints.splice(i, 1);
+					}
+				}
+				
+				for(var i = 0; i < boardPoints.length; i++) {
+					if(boardPoints[i].Y < line) {
+						boardPoints[i].Y++;
+					}
+				}
+			}
+			
+			function incrementScore() {
+				score++;
+				var scoreStr = score.toString();
+				var scoreLabelText = '';
+				for(var i = 0; i < 10 - scoreStr.length; i++) {
+					scoreLabelText = scoreLabelText + '0';
+				}
+				
+				scoreLabelText = scoreLabelText + scoreStr;
+				
+				document.getElementById("scoreLabel").innerHTML = scoreLabelText;
 			}
 			
 			function clearCanvas() {
@@ -241,6 +322,7 @@
 			}
 			
 			document.onloaded = new function() {
+				incrementScore();
 				recalculateGround();
 				randomNextShape();
 				spawnShape();
