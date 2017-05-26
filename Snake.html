@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+		
+	
+	</head>
+
+	<body>
+		<label id="scoreLabel"></label><br/>
+		<canvas id="myCanvas" width="500" height="500" style="border:1px solid #000000;" onkeypress="changeDirection(event)">
+		</canvas>
+	</body>
+	
+	<script type="text/javascript">
+		
+			var pointsArray = [];
+			var directionsArray = [];
+			var currentDirection = 2;
+			var foodPosition = {};
+			var maxLength = 5;
+			var currentStepTime = 800;
+			var pixelWidth = 10;
+			var maxXpx = 500;
+			var maxYpx = 500;
+			var maxXBound = 500 / pixelWidth;
+			var maxYBound = 500 / pixelWidth;
+			var score = -1;
+			var foodAnimationScale = 0;
+			var foodAnimationEnlargeTransformation = true;
+			
+			function spawnFood() {
+				var foodX = Math.round(Math.random() * (maxXBound - 1));
+				var foodY = Math.round(Math.random() * (maxYBound - 1));
+				foodPosition.X = foodX;
+				foodPosition.Y = foodY;
+				
+				//renderPoint(foodPosition);
+				//animateFood();
+			}
+			
+			function animateFood() {
+				setTimeout(function() {
+					if(foodAnimationScale >= 0) {
+						foodAnimationEnlargeTransformation = false;
+					}
+					else if(foodAnimationScale <= (0 - pixelWidth)) {
+						foodAnimationEnlargeTransformation = true;
+					}
+					
+					if(foodAnimationEnlargeTransformation)
+						foodAnimationScale++;
+					else foodAnimationScale--;
+					
+					renderFood(foodPosition, foodAnimationScale);
+					animateFood();
+				}, 100);
+			}
+			
+			function move() {
+				var currentPosition = pointsArray[pointsArray.length - 1];
+				
+				if(currentPosition.X == foodPosition.X && currentPosition.Y == foodPosition.Y) {
+					maxLength++;
+					incrementScore();
+					currentStepTime = Math.round(0.8 * currentStepTime);
+					spawnFood();
+				}
+				
+				if(directionsArray.length > 0) {
+					var directionDiff = currentDirection - directionsArray[0];
+					if(Math.abs(directionDiff) != 2) {
+						currentDirection = directionsArray[0];
+					}
+					directionsArray.shift();
+				}
+			
+				switch(currentDirection) {
+					case 0:
+						//LEFT
+						pushPoint(currentPosition.X - 1, currentPosition.Y);
+						break;
+					case 1:
+						//UPWARDS
+						pushPoint(currentPosition.X, currentPosition.Y - 1);
+						break;
+					case 2:
+						//RIGHT
+						pushPoint(currentPosition.X + 1, currentPosition.Y);
+						break;
+					case 3:
+						//DOWNWARDS
+						pushPoint(currentPosition.X, currentPosition.Y + 1);
+						break;
+					default:
+					break;
+				}
+				
+				if(pointsArray.length > maxLength) {
+					var oldPoint = pointsArray[0];
+					clearPoint(oldPoint);
+					pointsArray.shift();
+				}
+				
+				render();
+				if(isCollided()) {
+					alert("LOST!");
+					return;
+				}
+				setTimeout(move, currentStepTime);
+			}
+			
+			function pushPoint(x, y) {
+				var point = {};
+				point.X = x;
+				point.Y = y;
+				pointsArray.push(point);
+			}
+		
+			function render() {
+				for(var i = 0; i < pointsArray.length; i++) {
+					renderPoint(pointsArray[i]);
+				}
+			}
+			
+			function renderPoint(point) {
+				var canvas = document.getElementById("myCanvas");
+				var ctx = canvas.getContext("2d");
+				ctx.fillStyle = "black";
+				ctx.fillRect(point.X * pixelWidth, point.Y * pixelWidth, pixelWidth, pixelWidth);
+				
+				ctx.strokeStyle = "white";
+				ctx.lineWidth = 1;
+				ctx.strokeRect(point.X * pixelWidth, point.Y * pixelWidth, pixelWidth, pixelWidth);
+			}
+			
+			function renderFood(point, animationScale) {
+				var canvas = document.getElementById("myCanvas");
+				var ctx = canvas.getContext("2d");
+				ctx.fillStyle = "black";
+				ctx.fillRect(point.X * pixelWidth - animationScale, point.Y * pixelWidth - animationScale, pixelWidth + (2 * animationScale), pixelWidth + (2 * animationScale));
+				
+				ctx.strokeStyle = "white";
+				ctx.lineWidth = 1;
+				ctx.strokeRect(point.X * pixelWidth - animationScale, point.Y * pixelWidth - animationScale, pixelWidth + (2 * animationScale), pixelWidth + (2 * animationScale));
+			}
+			
+			function clearPoint(point) {
+				var canvas = document.getElementById("myCanvas");
+				var ctx = canvas.getContext("2d");
+				ctx.fillStyle = "white";
+				ctx.fillRect(point.X * pixelWidth - 1, point.Y * pixelWidth - 1, pixelWidth + 2, pixelWidth + 2);
+			}
+			
+			function changeDirection(event) {
+				var keycodeInt = parseInt(event.keyCode);
+				var direction = Math.abs(37 - keycodeInt);
+				directionsArray.push(direction);
+			}
+			
+			function incrementScore() {
+				score++;
+				var scoreStr = score.toString();
+				var scoreLabelText = '';
+				for(var i = 0; i < 10 - scoreStr.length; i++) {
+					scoreLabelText = scoreLabelText + '0';
+				}
+				
+				scoreLabelText = scoreLabelText + scoreStr;
+				
+				document.getElementById("scoreLabel").innerHTML = scoreLabelText;
+			}
+			
+			function isCollidedWithWalls() {
+				var currentPosition = pointsArray[pointsArray.length - 1];
+				return currentPosition.X < 0 || currentPosition.Y < 0 || currentPosition.X == maxXBound || currentPosition.Y == maxYBound;
+			}
+			
+			function isCollidedWithSelf() {
+				var currentPosition = pointsArray[pointsArray.length - 1];
+				for(var i = 0; i < pointsArray.length - 1; i++) {
+					if(currentPosition.X == pointsArray[i].X && currentPosition.Y == pointsArray[i].Y) {
+						return true;
+					}
+				}
+				
+				return false;
+			}
+			
+			function isCollided() {
+				return isCollidedWithWalls() || isCollidedWithSelf();
+			}
+			
+			document.onloaded = new function() {
+				pushPoint(2, 2);
+				setTimeout(move, currentStepTime);
+				spawnFood();
+				animateFood();
+				incrementScore();
+			};
+			
+			document.onkeydown = changeDirection;
+		
+		</script>
+</html>

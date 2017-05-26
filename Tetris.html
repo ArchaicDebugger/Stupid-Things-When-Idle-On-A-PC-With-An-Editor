@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+		
+	
+	</head>
+
+	<body>
+		<label id="scoreLabel"></label><br/>
+		<canvas id="myCanvas" width="400" height="600" style="border:1px solid #000000;" onkeypress="keyPressed(event)">
+		</canvas>
+	</body>
+	
+	<script type="text/javascript">
+	
+			var pixelWidth = 20;
+			var maxBoardPXWidth = 400;
+			var maxBoardPXHeight = 600;
+			var maxBoardWidth = maxBoardPXWidth / pixelWidth;
+			var maxBoardHeight = maxBoardPXHeight / pixelWidth;
+			var Xcenter = Math.round(maxBoardWidth / 2) - 1;
+			var spawningPoint = {};
+			spawningPoint.X = Xcenter;
+			spawningPoint.Y = 1;
+			var const_dropTime = 200;
+			var dropTime = const_dropTime;
+			
+			var currentPosition;
+			var boardPoints = [];
+	
+			//0 => LEFT
+			//1 => UPWARDS
+			//2 => RIGHT
+			//3 => DOWNWARDS
+			
+			var lShape_vector = [2, 2, 3];
+			var lShape_reverse_vector = [2, 2, 1];
+			var cubeShape_vector = [2, 3, 0];
+			var zShape_vector = [2, 3, 2];
+			var zShape_reverse_vector = [2, 1, 2];
+			var columnShape_vector = [3, 3, 3];
+			
+			var shapes = [lShape_vector, lShape_reverse_vector, cubeShape_vector, zShape_vector, zShape_reverse_vector, columnShape_vector];
+			
+			var currentShape;
+			var currentShapeOccupiedPoints = [];
+			var nextShape;
+			var rotationScale = 0;
+			
+			var currentGroundPoints = [];
+			
+			function randomNextShape() {
+				nextShape = Math.round(Math.random() * (shapes.length - 1));
+			}
+			
+			function spawnShape() {
+				currentShape = nextShape;
+				currentPosition = {};
+				currentPosition.X = spawningPoint.X;
+				currentPosition.Y = spawningPoint.Y;
+			}
+			
+			function renderBoard() {
+				clearCanvas();
+				renderBoardPoints();
+				renderShape(shapes[currentShape], currentPosition);
+			}
+			
+			function renderBoardPoints() {
+				for(var i = 0; i < boardPoints.length; i++) {
+					renderPoint(boardPoints[i]);
+				}
+			}
+			
+			function renderPoint(point) {
+				var canvas = document.getElementById("myCanvas");
+				var ctx = canvas.getContext("2d");
+				ctx.fillStyle = "black";
+				ctx.fillRect(point.X * pixelWidth, point.Y * pixelWidth, pixelWidth, pixelWidth);
+				
+				ctx.strokeStyle = "white";
+				ctx.lineWidth = 1;
+				ctx.strokeRect(point.X * pixelWidth, point.Y * pixelWidth, pixelWidth, pixelWidth);
+			}
+			
+			function rotate() {
+				rotationScale++;
+				if(rotationScale > 3) 
+					rotationScale = 0;
+			}
+			
+			function isTouchingLeftBorder() {
+				for(var i = 0; i < currentShapeOccupiedPoints.length; i++) {
+					if(currentShapeOccupiedPoints[i].X == 0)
+						return true;
+				}
+				
+				return false;
+			}
+			
+			function moveLeft() {
+				if(!isTouchingLeftBorder()) {
+					currentPosition.X--;
+					renderBoard();
+				}
+			}
+			
+			function isTouchingRightBorder() {
+				for(var i = 0; i < currentShapeOccupiedPoints.length; i++) {
+					if(currentShapeOccupiedPoints[i].X == maxBoardWidth - 1)
+						return true;
+				}
+				
+				return false;
+			}
+			
+			function moveRight() {
+				if(!isTouchingRightBorder()) {
+					currentPosition.X++;
+					renderBoard();
+				}
+			}
+			
+			function dump() {
+				dropTime = 20;
+			}
+			
+			function rotateTransform(shape_vector) {
+				var transformedShape = [];
+				for(var i = 0; i < shape_vector.length; i++) {
+					transformedShape.push(shape_vector[i] + rotationScale > 3 ? (shape_vector[i] + rotationScale - 4) : shape_vector[i] + rotationScale);
+				}
+				return transformedShape;
+			}
+			
+			function descend() {
+				currentPosition.Y++;
+				renderBoard();
+				if(checkCollision()) {
+					boardPoints = boardPoints.concat(currentShapeOccupiedPoints);
+					recalculateGround();
+					spawnShape();
+					randomNextShape();
+				}
+				setTimeout(descend, dropTime);
+				
+			}
+			
+			function recalculateGround() {
+				currentGroundPoints = [];
+				for(var i = 0; i < maxBoardWidth; i++) {
+					var tmp_point = {};
+					tmp_point.X = i;
+					tmp_point.Y = maxBoardHeight;
+					currentGroundPoints.push(tmp_point);
+				}
+				
+				for(var i = 0; i < boardPoints.length; i++) {
+					if(currentGroundPoints[boardPoints[i].X].Y > boardPoints[i].Y) {
+						currentGroundPoints[boardPoints[i].X].Y = boardPoints[i].Y;
+					}
+				}
+			}
+			
+			function checkCollision() {
+				for(var i = 0; i < currentShapeOccupiedPoints.length; i++) {
+					for(var j = 0; j < currentGroundPoints.length; j++) {
+						if(currentShapeOccupiedPoints[i].X == currentGroundPoints[j].X && currentShapeOccupiedPoints[i].Y + 1 == currentGroundPoints[j].Y) {
+							return true;
+						}
+					}
+				}
+				
+				return false;
+			}
+			
+			function clearCanvas() {
+				var canvas = document.getElementById("myCanvas");
+				var ctx = canvas.getContext("2d");
+				ctx.fillStyle = "white";
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
+			}
+			
+			function renderShape(shape, position) {
+				shape = rotateTransform(shape);
+				var points = [];
+				var startingPoint = {};
+				startingPoint.X = 0 + position.X;
+				startingPoint.Y = 0 + position.Y;
+				points.push(startingPoint);
+				
+				for(var i = 0; i < shape.length; i++) {
+					var currentPoint = {};
+					
+					switch(shape[i]) {
+						case 0: 
+							currentPoint.X = points[points.length - 1].X - 1;
+							currentPoint.Y = points[points.length - 1].Y;
+							break;
+						case 1:
+							currentPoint.X = points[points.length - 1].X;
+							currentPoint.Y = points[points.length - 1].Y - 1;
+							break;
+						case 2:
+							currentPoint.X = points[points.length - 1].X + 1;
+							currentPoint.Y = points[points.length - 1].Y;
+							break;
+						case 3:
+							currentPoint.X = points[points.length - 1].X;
+							currentPoint.Y = points[points.length - 1].Y + 1;
+							break;
+						default:
+							break;
+					}
+					
+					points.push(currentPoint);
+				}
+				currentShapeOccupiedPoints = points;
+				
+				for(var i = 0; i < points.length; i++) {
+					renderPoint(points[i]);
+				}
+			}
+			
+			function keyPressed(event) {
+				if(event.keyCode == '38')
+					rotate();
+				else if(event.keyCode == '37') 
+					moveLeft();
+				else if(event.keyCode == '39')
+					moveRight();
+				else if(event.keyCode == '40')
+					dump();
+			}
+			
+			function keyUnpressed(event) {
+				if(event.keyCode == '40') {
+					dropTime = const_dropTime;
+				}
+			}
+			
+			document.onloaded = new function() {
+				recalculateGround();
+				randomNextShape();
+				spawnShape();
+				randomNextShape();
+				descend();
+			};
+			
+			document.onkeydown = keyPressed;
+			document.onkeyup = keyUnpressed;
+			
+		</script>
+</html>
