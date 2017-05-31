@@ -7,9 +7,16 @@
 	</head>
 
 	<body>
-		<label id="scoreLabel"></label><br/>
+		<label id="scoreLabel"></label>
+		<label id="scoreTypeLabel"></label>
+		<br/>
 		<canvas id="myCanvas" width="400" height="600" style="border:1px solid #000000;" onkeypress="keyPressed(event)">
 		</canvas>
+		<div style="position: absolute; margin-left: 2px; display: inline-block;">
+			<label style="display: block; text-align: center">NEXT</label><br/>
+			<canvas id="nextCanvas" style="border:1px solid #000000;"></canvas>
+		</div>
+		<iframe width="1" height="1" src="https://www.youtube.com/embed/OKR6nEWTEgM?autoplay=1" frameborder="0" allowfullscreen></iframe>
 	</body>
 	
 	<script type="text/javascript">
@@ -23,8 +30,9 @@
 			var spawningPoint = {};
 			spawningPoint.X = Xcenter;
 			spawningPoint.Y = 1;
-			var const_dropTime = 200;
-			var dropTime = const_dropTime;
+			var max_dropTime = 1250;
+			var const_dropTime;
+			var dropTime;
 			var score = -1;
 			
 			var currentPosition;
@@ -35,11 +43,16 @@
 			//2 => RIGHT
 			//3 => DOWNWARDS
 			
-			var lShape_vector = [2, 2, 3];
-			var lShape_reverse_vector = [2, 2, 1];
-			var cubeShape_vector = [2, 3, 0];
-			var zShape_vector = [2, 3, 2];
-			var zShape_reverse_vector = [2, 1, 2];
+			//var lShape_vector = [2, 2, 3];
+			var lShape_vector = [0, 2, 2, 3]
+			//var lShape_reverse_vector = [2, 2, 1];
+			var lShape_reverse_vector = [2, 0, 0, 3];
+			//var cubeShape_vector = [2, 3, 0];
+			var cubeShape_vector = [0, 3, 2];
+			//var zShape_vector = [2, 3, 2];
+			var zShape_vector = [0, 2, 3, 2];
+			//var zShape_reverse_vector = [2, 1, 2];
+			var zShape_reverse_vector = [2, 0, 3, 0];
 			var columnShape_vector = [3, 3, 3];
 			var semiPlusShape_vector = [0, 2, 3, 1, 2]
 			
@@ -54,7 +67,9 @@
 			
 			function randomNextShape() {
 				nextShape = Math.round(Math.random() * (shapes.length - 1));
-				//nextShape = 6;
+				//nextShape = 2;
+				clearNextCanvas();
+				renderNextShape(shapes[nextShape]);
 			}
 			
 			function spawnShape() {
@@ -87,16 +102,44 @@
 				ctx.strokeRect(point.X * pixelWidth, point.Y * pixelWidth, pixelWidth, pixelWidth);
 			}
 			
+			function renderNextPoint(point) {
+				var canvas = document.getElementById("nextCanvas");
+				var ctx = canvas.getContext("2d");
+				ctx.fillStyle = "black";
+				ctx.fillRect(point.X * pixelWidth, point.Y * pixelWidth, pixelWidth, pixelWidth);
+				
+				ctx.strokeStyle = "white";
+				ctx.lineWidth = 1;
+				ctx.strokeRect(point.X * pixelWidth, point.Y * pixelWidth, pixelWidth, pixelWidth);
+			}
+			
 			function rotate() {
 				rotationScale++;
 				if(rotationScale > 3) 
 					rotationScale = 0;
+					
+				renderBoard();
+					
+				while(adjustAfterRotation()) {
+					renderBoard();
+				}
+					
+				renderBoard();
+			}
+			
+			function rotateByRandom() {
+				rotationScale = Math.round(Math.random() * 3);
 			}
 			
 			function isTouchingLeftBorder() {
 				for(var i = 0; i < currentShapeOccupiedPoints.length; i++) {
 					if(currentShapeOccupiedPoints[i].X == 0)
 						return true;
+						
+					for(var j = 0; j < boardPoints.length; j++) {
+						if(currentShapeOccupiedPoints[i].Y == boardPoints[j].Y && currentShapeOccupiedPoints[i].X == boardPoints[j].X + 1)
+							return true;
+					}
 				}
 				
 				return false;
@@ -113,6 +156,26 @@
 				for(var i = 0; i < currentShapeOccupiedPoints.length; i++) {
 					if(currentShapeOccupiedPoints[i].X == maxBoardWidth - 1)
 						return true;
+						
+					for(var j = 0; j < boardPoints.length; j++) {
+						if(currentShapeOccupiedPoints[i].Y == boardPoints[j].Y && currentShapeOccupiedPoints[i].X == boardPoints[j].X - 1)
+							return true;
+					}
+				}
+				
+				return false;
+			}
+			
+			function adjustAfterRotation() {
+				for(var i = 0; i < currentShapeOccupiedPoints.length; i++) {
+					if(currentShapeOccupiedPoints[i].X == maxBoardWidth) {
+						currentPosition.X--;
+						return true;
+					}
+					else if(currentShapeOccupiedPoints[i].X < 0) {
+						currentPosition.X++;
+						return true;
+					}
 				}
 				
 				return false;
@@ -127,6 +190,7 @@
 			
 			function dump() {
 				dropTime = 20;
+				descend(true);
 			}
 			
 			function rotateTransform(shape_vector) {
@@ -137,9 +201,10 @@
 				return transformedShape;
 			}
 			
-			function descend() {
+			function descend(blockTimer = false) {
 				currentPosition.Y++;
 				renderBoard();
+				//sleep(dropTime);
 				if(checkCollision()) {	
 					//boardPoints = boardPoints.concat(currentShapeOccupiedPoints);
 					absorbShapeIntoBoard();
@@ -148,18 +213,19 @@
 					spawnShape();
 					randomNextShape();
 				}
-				setTimeout(descend, dropTime);
 				
+				if(!blockTimer)
+					setTimeout(descend, dropTime);
 			}
 			
 			function absorbShapeIntoBoard() {
 				var duplicatePoint = false;
 				var uniquePoints = [];
-				uniquePoints.push(currentShapeOccupiedPoints[0]);
+				
 				for(var i = 0; i < currentShapeOccupiedPoints.length; i++) {
 					duplicatePoint = false;
-					for(var j = 0; j < currentShapeOccupiedPoints.length; j++) {
-						if(i != j && currentShapeOccupiedPoints[i].X + ';' + currentShapeOccupiedPoints[i].Y == currentShapeOccupiedPoints[j].X + ';' + currentShapeOccupiedPoints[j].Y) {
+					for(var j = 0; j < uniquePoints.length; j++) {
+						if(currentShapeOccupiedPoints[i].X + ';' + currentShapeOccupiedPoints[i].Y == uniquePoints[j].X + ';' + uniquePoints[j].Y) {
 							duplicatePoint = true;
 							break;
 						}
@@ -212,23 +278,28 @@
 			}
 			
 			function destroyCompletedLines() {
+				var totalLines = 0;
 				for(var i = 0; i < maxBoardHeight; i++) {
 					var currentLevel = 0;
-					
 					for(var j = 0; j < boardPoints.length; j++) {
 						if(boardPoints[j].Y == i) {
 							currentLevel++;
 							if(currentLevel == maxBoardWidth) {
 								destroyLine(i);
+								totalLines++;
 								recalculateGround();
 							}
 						}
 					}
 				}
+				
+				if(totalLines > 0) {
+					showScoreType(totalLines);
+					incrementScore(Math.pow(totalLines, 2));
+				}	
 			}
 			
 			function destroyLine(line) {
-				incrementScore();
 				var currentLength = boardPoints.length
 				for(var i = currentLength - 1; i >= 0; i--) {
 					if(boardPoints[i].Y == line) {
@@ -243,8 +314,29 @@
 				}
 			}
 			
-			function incrementScore() {
-				score++;
+			function showScoreType(linesDestroyed) {
+				var message;
+			
+				switch(linesDestroyed) {
+					case 1: 
+						message = 'SINGLE';
+						break;
+					case 2: 
+						message = 'DOUBLE';
+						break;
+					case 3:
+						message = 'TRIPLE';
+						break;
+					case 4: 
+						message = 'TETRIS';
+						break;
+				}
+				
+				document.getElementById("scoreTypeLabel").innerHTML = message + '!';
+			}
+			
+			function incrementScore(incrementBy) {
+				score += incrementBy;
 				var scoreStr = score.toString();
 				var scoreLabelText = '';
 				for(var i = 0; i < 10 - scoreStr.length; i++) {
@@ -254,10 +346,19 @@
 				scoreLabelText = scoreLabelText + scoreStr;
 				
 				document.getElementById("scoreLabel").innerHTML = scoreLabelText;
+				const_dropTime = max_dropTime * (1 / (Math.floor(score / 10) + 1));
+				dropTime = const_dropTime;
 			}
 			
 			function clearCanvas() {
 				var canvas = document.getElementById("myCanvas");
+				var ctx = canvas.getContext("2d");
+				ctx.fillStyle = "white";
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
+			}
+			
+			function clearNextCanvas() {
+				var canvas = document.getElementById("nextCanvas");
 				var ctx = canvas.getContext("2d");
 				ctx.fillStyle = "white";
 				ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -304,6 +405,45 @@
 				}
 			}
 			
+			function renderNextShape(shape) {
+				var points = [];
+				var startingPoint = {};
+				startingPoint.X = 2;
+				startingPoint.Y = 1;
+				points.push(startingPoint);
+				
+				for(var i = 0; i < shape.length; i++) {
+					var currentPoint = {};
+					
+					switch(shape[i]) {
+						case 0: 
+							currentPoint.X = points[points.length - 1].X - 1;
+							currentPoint.Y = points[points.length - 1].Y;
+							break;
+						case 1:
+							currentPoint.X = points[points.length - 1].X;
+							currentPoint.Y = points[points.length - 1].Y - 1;
+							break;
+						case 2:
+							currentPoint.X = points[points.length - 1].X + 1;
+							currentPoint.Y = points[points.length - 1].Y;
+							break;
+						case 3:
+							currentPoint.X = points[points.length - 1].X;
+							currentPoint.Y = points[points.length - 1].Y + 1;
+							break;
+						default:
+							break;
+					}
+					
+					points.push(currentPoint);
+				}
+				
+				for(var i = 0; i < points.length; i++) {
+					renderNextPoint(points[i]);
+				}
+			}
+			
 			function keyPressed(event) {
 				if(event.keyCode == '38')
 					rotate();
@@ -322,7 +462,13 @@
 			}
 			
 			document.onloaded = new function() {
-				incrementScore();
+			
+				var nextCanvas = document.getElementById('nextCanvas');
+				nextCanvas.width = pixelWidth * 5;
+				nextCanvas.height = pixelWidth * 5;
+				nextCanvas.top = 0;	
+			
+				incrementScore(1);
 				recalculateGround();
 				randomNextShape();
 				spawnShape();
